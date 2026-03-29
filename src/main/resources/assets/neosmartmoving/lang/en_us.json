@@ -1,0 +1,13 @@
+{
+  "itemGroup.neosmartmoving": "Example Mod Tab",
+  "block.neosmartmoving.example_block": "Example Block",
+  "item.neosmartmoving.example_item": "Example Item",
+
+  "neosmartmoving.configuration.title": "NeoSmartMoving Configs",
+  "neosmartmoving.configuration.section.neosmartmoving.common.toml": "NeoSmartMoving Configs",
+  "neosmartmoving.configuration.section.neosmartmoving.common.toml.title": "NeoSmartMoving Configs",
+  "neosmartmoving.configuration.items": "Item List",
+  "neosmartmoving.configuration.logDirtBlock": "Log Dirt Block",
+  "neosmartmoving.configuration.magicNumberIntroduction": "Magic Number Text",
+  "neosmartmoving.configuration.magicNumber": "Magic Number"
+}
