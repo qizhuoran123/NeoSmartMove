@@ -1,6 +1,7 @@
 package cn.qi.pocdap.client;
 
 import cn.qi.pocdap.client.key.ClientKeyConfig;
+import cn.qi.pocdap.data.state.SmartMoveState;
 import cn.qi.pocdap.network.payload.ActionKeyPayload;
 import cn.qi.pocdap.registers.NetworkRegister;
 import net.minecraft.client.Minecraft;
@@ -52,6 +53,16 @@ public class ClientSetup {
             Minecraft.getInstance().player.displayClientMessage(
                     net.minecraft.network.chat.Component.literal("翻越键被按下了！"), true);
             PacketDistributor.sendToServer(new ActionKeyPayload(1));
+        }
+        if (Minecraft.getInstance().player.input.jumping){
+            Minecraft.getInstance().player.displayClientMessage(
+                    net.minecraft.network.chat.Component.literal("Space pressed"), true);
+            PacketDistributor.sendToServer(new ActionKeyPayload(2));
+        }
+        float sideways = Minecraft.getInstance().player.input.leftImpulse;
+        if (sideways != 0) {
+            int action = sideways > 0 ? 3:4;
+            PacketDistributor.sendToServer(new ActionKeyPayload(action));
         }
     }
 }
