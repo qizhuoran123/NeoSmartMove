@@ -50,7 +50,7 @@ public class NetworkRegister {
                     // 【动作 0：智能抓取与地形分析】
                     // ==========================================
                     if (payload.actionType() == 0) {
-                        hitResult = player.pick(5.0D, 0.0F, false);
+                        hitResult = player.pick(3.0D, 1.0F, false);
                         if (hitResult.getType() == HitResult.Type.BLOCK) {
                             BlockHitResult blockHitResult = (BlockHitResult) hitResult;
                             targetPos = blockHitResult.getBlockPos();
@@ -82,14 +82,16 @@ public class NetworkRegister {
                                 else if (heightDiff == 1) {
                                     // 🧗‍♂️ 借力踩踏跳 (动作 6)
                                     player.sendSystemMessage(Component.literal("发现一格高垫脚石，准备借力跃起！"));
+                                    moveToTarget(targetPos.relative(face.getOpposite()).below(targetY-obstacleY),face,player,4,0,state,21);
                                     // 动作6: 6帧，目标Y是方块顶端减0.8
-                                    moveToTarget(targetPos, face, player, 6, -0.8, state, 6);
+                                    moveToTarget(targetPos, face, player, 6, 0, state, 6);
                                 }
                                 else {
                                     // 🏃‍♂️ 冲刺直上 (动作 7)
                                     player.sendSystemMessage(Component.literal("前方平坦，冲刺抓取！"));
                                     // 动作7: 4帧，目标Y是方块顶端减0.8
-                                    moveToTarget(targetPos, face, player, 4, -0.8, state, 7);
+                                    moveToTarget(targetPos.below(targetY-obstacleY),face,player,4,0,state,10);
+                                    moveToTarget(targetPos, face, player, 6, 0, state, 7);
                                 }
 
                                 state.wallFace = face;
@@ -97,33 +99,61 @@ public class NetworkRegister {
                         }
                     }
                     // ==========================================
-                    // 【动作 1：翻越逻辑 (V键)】
+                    // 【动作 1：智能翻越 (Vault) 与地形识别】
                     // ==========================================
                     else if (payload.actionType() == 1) {
-                        Direction playerFacing = player.getDirection();
-                        BlockPos behindBase = targetPos.relative(playerFacing);
-                        BlockPos vaultTargetLower = behindBase.above();
-                        BlockPos vaultTargetUpper = behindBase.above(2);
-                        BlockPos wallTop = targetPos.above();
 
-                        boolean isWallTopClear = level.getBlockState(wallTop).getCollisionShape(level, wallTop).isEmpty();
-                        boolean isLandingClear = level.getBlockState(vaultTargetLower).getCollisionShape(level, vaultTargetLower).isEmpty() &&
-                                level.getBlockState(vaultTargetUpper).getCollisionShape(level, vaultTargetUpper).isEmpty();
+                           Direction playerFacing = player.getDirection();
+                           BlockPos wallPos = ((BlockHitResult) hitResult).getBlockPos(); // 假设 targetPos 存的是你正抓着的墙壁
+                           BlockPos vaultSpace = wallPos.above(); // 玩家将要穿过的那个方块（墙顶上方）
 
-                        if (isWallTopClear && isLandingClear) {
-                            player.sendSystemMessage(Component.literal("翻越路径畅通！准备执行翻越！"));
+                           // 确保前方翻越点上方是空的（不然头就撞墙了）
+                           boolean isWallTopClear = level.getBlockState(vaultSpace).getCollisionShape(level, vaultSpace).isEmpty();
+                           // 确保后方是空的（不然翻阅太远了）
+                           boolean isWallBehindClear = level.getBlockState(((BlockHitResult) hitResult).getBlockPos().relative(playerFacing)).isEmpty();
+                           if (isWallTopClear&&isWallBehindClear) {
+                               // 🌟 1. 发射左右探测雷达
+                               Direction leftDir = playerFacing.getCounterClockWise();
+                               Direction rightDir = playerFacing.getClockWise();
 
-                            // 🌟 翻越不需要精准吸附，只需要给一个斜向上的推力！
-                            double pushX = playerFacing.getStepX() * 0.4;
-                            double pushZ = playerFacing.getStepZ() * 0.4;
+                               BlockPos leftPos = vaultSpace.relative(leftDir);
+                               BlockPos rightPos = vaultSpace.relative(rightDir);
 
-                            state.AnimeTicks = 10; // 翻越飞越时间稍微长一点（半秒）
-                            state.moveDirection = new Vec3(pushX, 0.4, pushZ); // 向上Y推力为0.4
-                            state.AnimeNr = 3;     // 3 代表翻越，不会触发抓取的锁死
-                            state.isGrabbing = false;
-                        } else {
-                            player.sendSystemMessage(Component.literal("翻越失败：墙上方或对面有障碍物！"));
-                        }
+                               boolean leftSolid = !level.getBlockState(leftPos).getCollisionShape(level, leftPos).isEmpty();
+                               boolean rightSolid = !level.getBlockState(rightPos).getCollisionShape(level, rightPos).isEmpty();
+                               player.sendSystemMessage(Component.literal("Left and right are"+leftPos.toString()+rightPos.toString()));
+                               // 🌟 2. 动画分支矩阵
+                               if(state.isGrabbing)
+                               {
+                                   state.AnimeNr = 11; //反身翻越
+                                   player.sendSystemMessage(Component.literal("抓取状态，反身翻越！"));
+                               }
+                               else if (leftSolid && rightSolid) {
+                                   state.AnimeNr = 8; // 猩猩越
+                                   player.sendSystemMessage(Component.literal("狭窄地形：猩猩越！"));
+                               }
+                               else if (rightSolid && !leftSolid) {
+                                   state.AnimeNr = 9; // 懒人翻左
+                                   player.sendSystemMessage(Component.literal("右侧受阻：懒人翻左侧抬腿！"));
+                               }
+                               else if (leftSolid && !rightSolid) {
+                                   state.AnimeNr = 10; // 懒人翻右
+                                   player.sendSystemMessage(Component.literal("左侧受阻：懒人翻右侧抬腿！"));
+                               }
+                               else {
+                                   state.AnimeNr = 1; // 标准翻越
+                                   player.sendSystemMessage(Component.literal("地形开阔：标准翻越！"));
+                               }
+
+                               // 🌟 3. 执行物理推送
+                               double pushX = playerFacing.getStepX() * 0.4;
+                               double pushZ = playerFacing.getStepZ() * 0.4;
+                               state.AnimeTicks = 9; // 翻越持续帧数
+                               state.isGrabbing = false;
+                           } else {
+                               player.sendSystemMessage(Component.literal("翻越失败：正上方或后方空间不足！"));
+                           }
+
                     }
                     // ==========================================
                     // 【动作 2：攀爬逻辑 (空格键)】
@@ -188,9 +218,9 @@ public class NetworkRegister {
     // 🌟 修复后的 moveToTarget：只控制 Y 轴偏移，强制对准方块中心！
     private static void moveToTarget(BlockPos targetPos, Direction face, Player player, int ticksToSnap, double diffY, SmartMoveState state, int nextAnimeNr) {
         // 🌟 将半径从 0.35 改为 0.38，防止瞬移后被原版物理引擎强行挤出墙壁！
-        double playerRadius = 0.38;
-        double targetX = targetPos.getX() + 0.5 + face.getStepX() * (0.5 + playerRadius);
-        double targetZ = targetPos.getZ() + 0.5 + face.getStepZ() * (0.5 + playerRadius);
+        double playerRadius = 0;
+        double targetX = targetPos.getX()  + 0.5 + face.getStepX() * (0 + playerRadius);
+        double targetZ = targetPos.getZ()  + 0.5 + face.getStepZ() * (0 + playerRadius);
         double targetY = targetPos.getY() + diffY;
 
         state.VecX = targetX;

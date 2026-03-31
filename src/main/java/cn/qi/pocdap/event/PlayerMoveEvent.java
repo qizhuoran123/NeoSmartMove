@@ -5,6 +5,7 @@ import cn.qi.pocdap.registers.AttachmentRegister;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -50,7 +51,7 @@ public class PlayerMoveEvent {
             player.setNoGravity(true);
             player.hurtMarked = true;
 
-            if (state.AnimeNr == 3) {
+            if (state.AnimeNr == 3) { // 3:攀爬
                 if (state.AnimeTicks > 3) {
                     player.setDeltaMovement(new Vec3(0, 0.55, 0));
                 } else {
@@ -67,11 +68,11 @@ public class PlayerMoveEvent {
                     // 在停止水平移动的瞬间，强行把玩家吸附到绝对完美的墙根坐标！
                     // 彻底抹杀摩擦力导致的 0.8 格掉队！
                     if (state.AnimeTicks == 2) {
-                        player.setPos(state.VecX, player.getY(), state.VecZ);
+                        player.setPos(state.VecX, state.VecY, state.VecZ);
                     }
 
                     // 后2帧：纯 Y 轴拔高，贴墙拉起
-                    player.setDeltaMovement(new Vec3(0, state.moveDirection.y * 2, 0));
+                    player.setDeltaMovement(new Vec3(0, state.moveDirection.y * 4, 0));
                 }
             }
             else if (state.AnimeNr == 6) {
@@ -80,10 +81,20 @@ public class PlayerMoveEvent {
                     // 前3帧：斜上跳到那个1格高的方块上
                     player.setDeltaMovement(new Vec3(state.moveDirection.x, Math.max(0.4, state.moveDirection.y), state.moveDirection.z));
                 } else {
-                    if (state.AnimeTicks == 3) { player.setPos(state.VecX, player.getY(), state.VecZ); }
+                    if (state.AnimeTicks == 3) { player.setPos(state.VecX, state.VecY, state.VecZ); }
                     // 后3帧：从方块上起跳抓墙
-                    player.setDeltaMovement(new Vec3(state.moveDirection.x*1.2, state.moveDirection.y * 2.4, state.moveDirection.z*1.2));
+                    player.setDeltaMovement(new Vec3(state.moveDirection.x*1.2, state.moveDirection.y * 1.2, state.moveDirection.z*1.2));
                 }
+            }
+            // 🌟 动态碰撞箱缩放：如果是猩猩越(8)或懒人翻(9, 10)
+            else if (state.AnimeNr == 8 || state.AnimeNr == 9 || state.AnimeNr == 10) {
+                // 强制变为游泳姿态，碰撞箱瞬间变成 0.6 x 0.6！
+                player.setPose(Pose.SWIMMING);
+                player.setDeltaMovement(state.moveDirection);
+            }
+            else if (state.AnimeNr == 1) {
+                // 标准翻越，如果空间大，不需要压碰撞箱
+                player.setDeltaMovement(state.moveDirection);
             }
             else {
                 // 默认的斜向直接吸附 (AnimeNr == 2)
